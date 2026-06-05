@@ -1,0 +1,6 @@
+{
+  "name": "Simple E-Commerce Mobile App",
+  "description": "A high-fidelity Expo (React Native) & Supabase mobile e-commerce simulator with Customer and Admin portals, live order tracking, support ticketing, live notifications, and complete code export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
