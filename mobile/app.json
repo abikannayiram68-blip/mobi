@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Simple E-Commerce Mobile App",
+    "slug": "react-example",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0C"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#0A0A0C"
+      },
+      "package": "com.simpleecommerce.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "86f47c66-aa96-4b47-a85b-7d060cf89037"
+      }
+    },
+    "owner": "abirami-k"
+  }
+}

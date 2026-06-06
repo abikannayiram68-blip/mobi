@@ -1,4 +1,6 @@
+import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import path from "path";
 import pg from "pg";
 import nodemailer from "nodemailer";
@@ -13,9 +15,10 @@ dns.setDefaultResultOrder('ipv4first');
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 
-const connectionString = `postgresql://postgres:Abi%402005-1968@db.azwtmgexcksfhhcitemr.supabase.co:5432/postgres`;
+const connectionString = `postgresql://postgres:Abi%402005-1968@db.azwtmgexcksfhhcitemr.supabase.co:5432/ecommerce`;
 const pool = new pg.Pool({ connectionString });
 
 // Automated database schema validation and updates to handle pre-existing table modifications
@@ -55,6 +58,9 @@ async function runDbMigration() {
       `ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT '';`,
       `ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`,
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB NOT NULL DEFAULT '[]'::jsonb;`,
+      `ALTER TABLE orders ALTER COLUMN id TYPE TEXT;`,
+      `ALTER TABLE orders ALTER COLUMN user_id TYPE TEXT USING user_id::text;`,
 
       // Tickets
       `CREATE TABLE IF NOT EXISTS tickets (
@@ -210,18 +216,6 @@ function createTransporter() {
     return null;
   }
 
-  // If connection is Gmail, utilize specialized 'gmail' service config which resolves TLS & handshake ports perfectly.
-  if (host && host.toLowerCase().includes("gmail")) {
-    console.log("✉️ Applying specialized Gmail SMTP service connection...");
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user,
-        pass,
-      },
-    });
-  }
-
   // Smart-resolving secure flag based on SMTP port or explicit configuration override
   let secure = process.env.SMTP_SECURE === "true";
   if (port === 465) {
@@ -231,9 +225,7 @@ function createTransporter() {
   }
 
   return nodemailer.createTransport({
-    host,
-    port,
-    secure,
+    service: 'gmail',
     auth: {
       user,
       pass,
@@ -490,6 +482,85 @@ app.delete("/api/wishlist", async (req, res) => {
   } catch (err) {
     console.error("Error removing from wishlist:", err);
     return res.status(500).json({ error: "Database error deleting wishlist item." });
+  }
+});
+// ORDERS MANAGEMENT ENDPOINTS
+
+// Get orders for a user
+app.get("/api/orders", async (req, res) => {
+  const { user_id } = req.query;
+  if (!user_id) {
+    return res.status(400).json({ error: "Missing required parameter user_id" });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC`,
+      [user_id]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching orders:", err);
+    return res.status(500).json({ error: "Database error retrieving orders." });
+  }
+});
+
+// Create a new order
+app.post("/api/orders", async (req, res) => {
+  const { id, user_id, customer_name, customer_email, items, total_amount, status, shipping_address, payment_method, status_history } = req.body;
+  if (!user_id || !items || !total_amount) {
+    return res.status(400).json({ error: "Missing required order fields." });
+  }
+  try {
+    const orderId = id || `ord-${Date.now()}`;
+    await pool.query(
+      `INSERT INTO orders (id, user_id, customer_name, customer_email, items, total_amount, status, shipping_address, payment_method, status_history)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        orderId,
+        user_id,
+        customer_name || 'Customer',
+        customer_email || '',
+        JSON.stringify(items),
+        total_amount,
+        status || 'Placed',
+        shipping_address || '',
+        payment_method || '',
+        status_history || '[]'
+      ]
+    );
+    console.log(`🛒 New order placed: ${orderId} by ${customer_email}`);
+    return res.json({ success: true, orderId });
+  } catch (err: any) {
+    console.error("Error creating order:", err);
+    return res.status(500).json({ error: "Database error creating order." });
+  }
+});
+
+// PRODUCTS ENDPOINT (for mobile catalog)
+app.get("/api/products", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM products WHERE status = 'active' ORDER BY created_at DESC`
+    );
+    const products = result.rows.map((row: any) => ({
+      ...row,
+      price: parseFloat(row.price),
+      discount_price: row.discount_price ? parseFloat(row.discount_price) : null
+    }));
+    return res.json(products);
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    return res.status(500).json({ error: "Database error retrieving products." });
+  }
+});
+
+// APK Download Route
+app.get("/api/app-download", (req, res) => {
+  const apkPath = path.join(process.cwd(), "mobile-app.apk");
+  if (fs.existsSync(apkPath)) {
+    res.download(apkPath, "MobiShop.apk");
+  } else {
+    res.status(404).json({ error: "APK file not found. Build it first with 'eas build'." });
   }
 });
 

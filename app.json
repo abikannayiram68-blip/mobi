@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "86f47c66-aa96-4b47-a85b-7d060cf89037"
+      }
+    },
+    "android": {
+      "package": "com.abirami_k.reactexample"
+    }
+  }
+}
